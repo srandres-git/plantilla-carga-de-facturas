@@ -4,9 +4,8 @@ from file_management import get_xml_files_from_zip
 from config import NODOS, XSD_PATHS, VERSIONES, ATRIBUTOS_PREDET
 import pandas as pd
 import xml.etree.ElementTree as ET
-from zipfile import ZipFile
 
-def conceptos_cartaporte(zip_xmls : ZipFile)-> pd.DataFrame:
+def conceptos_cartaporte(zip_xmls)-> pd.DataFrame:
     """Genera un DataFrame con el desglose de los conceptos y atributos de carta porte de un archivo ZIP con XML's de CFDI"""
     xml_files = get_xml_files_from_zip(zip_xmls)
     cartasporte = read_cartaporte(xml_files)

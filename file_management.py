@@ -6,7 +6,6 @@ FUNCIONES AUXILIARES PARA MANEJO DE ARCHIVOS
 import os
 from datetime import datetime
 from dateutil.relativedelta import relativedelta
-from streamlit import ZipFile
 
 from exception_handling import EmptyExportError, ExportError, InvalidExportPathError, PermissionExportError, FileNotFoundError
 # _____________________________________________________________
@@ -63,12 +62,11 @@ def get_xml_files(
     
     return xml_files
 
-def get_xml_files_from_zip(zip_file: ZipFile)-> list[str]:
+def get_xml_files_from_zip(zip_file)-> list[str]:
     """
     Regresa una lista con los archivos xml en un archivo zip.
     """
     import zipfile
-    import io
     xml_files = []
     try:
         with zipfile.ZipFile(zip_file, 'r') as zip_ref:
