@@ -18,10 +18,10 @@ def generar_diccionarios(root):
         return()
 
 
-def lectura_xml(nombre_archivo):
+def lectura_xml(nombres_archivos):
     item = []
 
-    for archivo in nombre_archivo:
+    for archivo in nombres_archivos:
 
             #Lectura del xml
             tree = ET.parse(archivo)
@@ -121,8 +121,110 @@ def lectura_xml(nombre_archivo):
     #print(item)para 
     return(item)
 
+def read_conceptos(nombres_archivos: list[str])-> list:
+    item = []
 
-def generar_reporte(lista):
+    for archivo in nombres_archivos:
+
+            #Lectura del xml
+            tree = ET.parse(archivo)
+            root = tree.getroot()
+            nombre = archivo
+            nombre = nombre.replace(".xml","")
+            nodo = generar_diccionarios(root)
+            
+            #Se saca la fecha
+            Fecha = root.attrib["Fecha"]
+
+            #Se lee el atributo de tipo de comprobante del xml
+            TipoDeComprobante = root.attrib["TipoDeComprobante"]
+
+            #Hace filtro para solo trabajar con archivos de ingresos y egresos
+            if TipoDeComprobante == "T":
+                pass
+
+            else:
+                #Se empieza a extraer el atributo de Moneda y Rfc
+                Moneda = root.attrib["Moneda"]
+                Rfc = root[list(nodo.values()).index("{http://www.sat.gob.mx/cfd/4}Emisor")].attrib["Rfc"]
+
+                #Genera los diccionarios para revisión de nodos para bases e impuestos individuales
+                nodo_conceptos = generar_diccionarios(root[list(nodo.values()).index("{http://www.sat.gob.mx/cfd/4}Conceptos")])
+                nodo_impuestos = generar_diccionarios(root[list(nodo.values()).index("{http://www.sat.gob.mx/cfd/4}Conceptos")][list(nodo_conceptos.values()).index("{http://www.sat.gob.mx/cfd/4}Concepto")])
+                try:
+                    nodo_impuesto = generar_diccionarios(root[list(nodo.values()).index("{http://www.sat.gob.mx/cfd/4}Conceptos")][list(nodo_conceptos.values()).index("{http://www.sat.gob.mx/cfd/4}Concepto")][list(nodo_impuestos.values()).index("{http://www.sat.gob.mx/cfd/4}Impuestos")])
+                except:
+                    nodo_impuesto = []
+                nodo_timbre = generar_diccionarios(root[list(nodo.values()).index("{http://www.sat.gob.mx/cfd/4}Complemento")])
+            
+                #Extracción de UUID
+                UUID = root[list(nodo.values()).index("{http://www.sat.gob.mx/cfd/4}Complemento")][list(nodo_timbre.values()).index("{http://www.sat.gob.mx/TimbreFiscalDigital}TimbreFiscalDigital")].attrib["UUID"]
+
+                #Extración de la clave de producto o servicio y la descipción
+                for concepto in root[list(nodo.values()).index("{http://www.sat.gob.mx/cfd/4}Conceptos")]:
+                    ClaveProdServ = concepto.attrib["ClaveProdServ"]
+                    Descripcion = concepto.attrib["Descripcion"]
+
+                    #Extrae la base, tasa e importe del iva
+                    try:
+                        for base in concepto[list(nodo_impuestos.values()).index("{http://www.sat.gob.mx/cfd/4}Impuestos")][list(nodo_impuesto.values()).index("{http://www.sat.gob.mx/cfd/4}Traslados")]:
+                            base_individual_iva = base.attrib["Base"]
+                            TasaOCuota = base.attrib["TasaOCuota"]
+                            Importe_iva = base.attrib["Importe"]
+
+                    #Extrae la base, tasa e importe de la retencion     
+                        try:
+                            TasaOCuota_retencion = ""
+                            for retencion in concepto[list(nodo_impuestos.values()).index("{http://www.sat.gob.mx/cfd/4}Impuestos")][list(nodo_impuesto.values()).index("{http://www.sat.gob.mx/cfd/4}Retenciones")]:
+                                base_individual_retencion = retencion.attrib["Base"]
+                                TasaOCuota_retencion = retencion.attrib["TasaOCuota"] + "|" + TasaOCuota_retencion
+                                Importe_retencion = retencion.attrib["Importe"]                    
+                                
+                        except:
+                            base_individual_retencion = 0
+                            TasaOCuota_retencion = 0
+                            Importe_retencion = 0
+
+                    except:
+                        #Revisar este except a lo mejor se tiene que corregir
+                        base_individual_iva = concepto.attrib["Importe"]
+                        TasaOCuota = 0
+                        Importe_iva = 0 
+
+
+                                            #Extrae la base, tasa e importe de la retencion     
+                        try:
+                            TasaOCuota_retencion = ""
+                            for retencion in concepto[list(nodo_impuestos.values()).index("{http://www.sat.gob.mx/cfd/4}Impuestos")][list(nodo_impuesto.values()).index("{http://www.sat.gob.mx/cfd/4}Retenciones")]:
+                                base_individual_retencion = retencion.attrib["Base"]
+                                TasaOCuota_retencion = retencion.attrib["TasaOCuota"] + "|" + TasaOCuota_retencion
+                                Importe_retencion = retencion.attrib["Importe"]                    
+                                
+                        except:
+                            base_individual_retencion = 0
+                            TasaOCuota_retencion = 0
+                            Importe_retencion = 0
+
+                    item.append((nombre,
+                                    Fecha,
+                                    TipoDeComprobante,
+                                    Moneda,
+                                    Rfc,
+                                    ClaveProdServ,
+                                    Descripcion,
+                                    base_individual_iva,
+                                    TasaOCuota,
+                                    Importe_iva,
+                                    base_individual_retencion,
+                                    TasaOCuota_retencion,
+                                    Importe_retencion,
+                                    UUID))
+
+
+    #print(item)para 
+    return(item)
+
+def generar_reporte(lista)-> pd.DataFrame:
 
     df = pd.DataFrame(lista, columns = ["Nombre del archivo",
                                     "Fecha",
@@ -204,7 +306,7 @@ def desglose_xml(rutas):
         #Lectura del xml
         tree = ET.parse(ruta)
         root = tree.getroot()
-        nombre = ruta.name
+        nombre = ruta
         nombre = nombre.replace(".xml","")
         nodo = generar_diccionarios(root)
 
