@@ -1,4 +1,3 @@
-from tkinter import messagebox
 """Manejo de excepciones en la inspección de CFDIs"""
 
 class CFDIInspectionError(Exception):
@@ -10,9 +9,9 @@ class CFDIInspectionError(Exception):
     def show(self):
         print(self.message)
     def show_warning(self):
-        messagebox.showwarning("Advertencia", self.message)
+        print("Advertencia", self.message)
     def show_error(self):
-        messagebox.showerror("Error", self.message)
+        print("Error", self.message)
 
 class FileNotFoundError(CFDIInspectionError):
     """Error al intentar abrir un archivo"""
@@ -100,9 +99,9 @@ class GUIValidationError(Exception):
     def show(self):
         print(self.message)
     def show_warning(self):
-        messagebox.showwarning("Advertencia", self.message)
+        print("Advertencia", self.message)
     def show_error(self):
-        messagebox.showerror("Error", self.message)
+        print("Error", self.message)
 
 class EmptyFieldError(GUIValidationError):
     """Error al intentar validar un campo vacío"""

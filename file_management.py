@@ -6,7 +6,6 @@ FUNCIONES AUXILIARES PARA MANEJO DE ARCHIVOS
 import os
 from datetime import datetime
 from dateutil.relativedelta import relativedelta
-from tkinter import messagebox
 from streamlit import ZipFile
 
 from exception_handling import EmptyExportError, ExportError, InvalidExportPathError, PermissionExportError, FileNotFoundError
@@ -186,7 +185,7 @@ def export_to_excel(data_gen, output_path, nodes: dict[str, list[tuple[str, ...]
         EmptyExportError(output_path).show_error()
         return None
     # mensaje de éxito
-    messagebox.showinfo("Exportación exitosa", f"Datos exportados a: {output_path.split('/')[-1]}")
+    print("Exportación exitosa", f"Datos exportados a: {output_path.split('/')[-1]}")
     # abrir archivo
     os.startfile(output_path)
     
