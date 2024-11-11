@@ -3,7 +3,7 @@ FUNCIONES DE LECTURA DE CFDI
 """
 # _____________________________________________________________
 from time import sleep
-from lxml import etree
+import lxml.etree as etree
 import xml.etree.ElementTree as ET
 import re
 import os
