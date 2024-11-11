@@ -11,6 +11,7 @@ def conceptos_cartaporte(zip_xmls)-> pd.DataFrame:
     cartasporte = read_cartaporte(xml_files)
     conceptos = conceptos_df(read_conceptos(xml_files))
     return conceptos.merge(cartasporte, on='UUID', how='left')
+    # return conceptos
 
 def read_cartaporte(xml_list: list)-> pd.DataFrame:
 
@@ -85,9 +86,10 @@ def read_conceptos(nombres_archivos: list[str])-> list:
     for archivo in nombres_archivos:
 
             #Lectura del xml
+            archivo.seek(0) # Regresa al inicio del archivo
             tree = ET.parse(archivo)
             root = tree.getroot()
-            nombre = archivo
+            nombre = archivo.name
             nombre = nombre.replace(".xml","")
             nodo = generar_diccionarios(root)
             
