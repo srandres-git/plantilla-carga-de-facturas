@@ -137,7 +137,12 @@ def read_cfdi(
     """Lee un archivo XML de una ruta y extrae los elementos y atributos requeridos para cada tipo de información:
         CFDI, carta porte y timbre fiscal digital."""
     # Parsear el archivo XML
-    tree = etree.parse(xml_path)
+    try:
+        xml_path.seek(0) # Asegurarse de que el archivo esté al inicio
+        tree = etree.parse(xml_path)
+    except Exception as e:
+        XMLParseError(xml_path, e).show()
+        return None
     root = tree.getroot()
 
     data = {}
@@ -351,6 +356,7 @@ def get_namespaces(xml_path: str) -> dict[str, str]:
     """Extraer los namespaces del documento XML."""
     try:
         # Intentar abrir y parsear el archivo XML
+        xml_path.seek(0) # Asegurarse de que el archivo esté al inicio
         namespaces = dict([
             node for _, node in ET.iterparse(xml_path, events=['start-ns'])
         ])
