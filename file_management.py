@@ -71,8 +71,8 @@ def get_xml_files_from_zip(zip_file)-> list[str]:
     try:
         with zipfile.ZipFile(zip_file, 'r') as zip_ref:
             for filename in zip_ref.namelist():
-                if filename.lower().endswith('.xml'):
-                    xml_files.append(zip_ref.open(filename))
+                if filename.endswith('.xml'):
+                    xml_files.append(filename)
     except Exception as error:
         print(f'No se pudo leer el archivo zip:\n',error)
         return None
