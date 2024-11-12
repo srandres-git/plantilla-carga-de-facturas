@@ -1,17 +1,69 @@
 from funciones_prev import generar_diccionarios
 from cfdi_inspection import read_cfdi_list, load_xsd_data
 from file_management import get_xml_files_from_zip
-from config import NODOS, XSD_PATHS, VERSIONES, ATRIBUTOS_PREDET
+from asignacion_producto import analisis_descripcion, asign_cve_prod_sap
+from config import NODOS, XSD_PATHS, VERSIONES, ATRIBUTOS_PREDET, PATH_CVES_NO_TRANSP_SIN_RET
 import pandas as pd
 import xml.etree.ElementTree as ET
+
+def generar_plantilla(zip_xmls)-> pd.DataFrame:
+    """Genera un DataFrame con la plantilla para carga de facturas a SAP"""
+    # leer los archivos xml y generamos el desglose de conceptos y cruce con carta porte
+    facturas = conceptos_cartaporte(zip_xmls)
+    # Generamos columnas de base de retención  y traslado de IVA
+    facturas['Base IVA 16% Traslado'] = facturas.apply(lambda x: obtener_base(x, 0.16, 'Precio neto', 'Importe de impuesto'), axis=1)
+    facturas['Base IVA 4% Retencion'] = facturas.apply(lambda x: obtener_base(x, 0.04, 'Base individual retencion', 'Importe de retencion'), axis=1)
+    # realizamos el análisis de la descripción
+    facturas = analisis_descripcion(facturas)
+    # Cargamos la tabla de asignación de productos
+    asign_table = pd.read_excel(PATH_CVES_NO_TRANSP_SIN_RET)
+    # asignamos la clave de producto
+    facturas[['ID de producto','Observación asignación de producto']] = facturas.apply(lambda x: asign_cve_prod_sap(x, asign_table), axis=1, result_type='expand')
+    # asignamos la clave de retención
+    facturas['Clave retención'] = facturas.apply(cve_retencion, axis=1)
+    return facturas
 
 def conceptos_cartaporte(zip_xmls)-> pd.DataFrame:
     """Genera un DataFrame con el desglose de los conceptos y atributos de carta porte de un archivo ZIP con XML's de CFDI"""
     xml_files = get_xml_files_from_zip(zip_xmls)
     cartasporte = read_cartaporte(xml_files)
     conceptos = conceptos_df(read_conceptos(xml_files))
-    return conceptos.merge(cartasporte, on='UUID', how='left')
+    df = conceptos.merge(cartasporte, on='UUID', how='left')
+
+    df['Tiene CCP'] = df['Version'].notnull()
+
+    return df
     # return conceptos
+
+def obtener_base(row, tasa, col_base:str, col_impuesto:str):
+    """Comprueba que una base corresponda a una tasa determinada.
+    Si la base corresponde a la tasa, regresa la base, de lo contrario regresa 0"""
+    base = float(row[col_base])
+    impuesto = float(row[col_impuesto])
+    if base == 0:
+        return 0
+    elif round(impuesto*100/base) == tasa*100: # Se multiplica por 100 para evitar errores de redondeo
+        return base
+    else:
+        return 0
+
+def cve_retencion(row):
+    """Asigna la clave de retención a una fila de un DataFrame"""
+    iva_ret_4 = row['Base IVA 4% Retencion']
+    iva_16 = row['Base IVA 16% Traslado']
+    producto = row['ID de producto']
+
+    if producto == 'FLETE_TER_N':
+        if iva_ret_4 > 0:
+            return 'A3V'
+        else:
+            return 'G1I'
+    else:
+        if iva_ret_4 > 0:
+            return None
+        else:
+            return None # Revisar si se debe asignar una clave de retención
+            
 
 def read_cartaporte(xml_list: list)-> pd.DataFrame:
 
