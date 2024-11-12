@@ -1,9 +1,9 @@
 import streamlit as st
 import zipfile
 import pandas as pd
-from cfdi_processing import conceptos_cartaporte
+from cfdi_processing import generar_plantilla
 from file_management import get_xml_files_from_zip
-from funciones_prev import lectura_xml, generar_reporte, descarga, desglose_xml, validacion
+from funciones_prev import descarga, desglose_xml, validacion
 
 st.title("Procesar Archivos ZIP")
 # xmls = []
@@ -28,12 +28,8 @@ if archivo_cargado is not None:
         #         xmls.append(zip_ref.open(filename))
         
         if plantilla == True:
-            # # Se llama a la función para leer el xml *** to do: definir nueva función para leer el xml
-            # contenido = lectura_xml(xmls)
-
-            # # Genera el DataFrame mediante la función y se muestra en pantalla *** to do: definir nueva función para generar el reporte
-            # df = generar_reporte(contenido)
-            df = conceptos_cartaporte(archivo_cargado)
+            
+            df = generar_plantilla(archivo_cargado)
             st.dataframe(df)
 
             #Llama a la función para la descarga del archivo
