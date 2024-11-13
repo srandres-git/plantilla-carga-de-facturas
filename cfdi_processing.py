@@ -2,7 +2,7 @@ from funciones_prev import generar_diccionarios
 from cfdi_inspection import read_cfdi_list, load_xsd_data
 from file_management import get_xml_files_from_zip
 from asignacion_producto import analisis_descripcion, asign_cve_prod_sap
-from config import NODOS, XSD_PATHS, VERSIONES, ATRIBUTOS_PREDET, PATH_CVES_NO_TRANSP_SIN_RET
+from config import NODOS, XSD_PATHS, VERSIONES, ATRIBUTOS_PREDET, PATH_CVES_NO_TRANSP_SIN_RET, PATH_BASE_PROV
 import pandas as pd
 import xml.etree.ElementTree as ET
 
@@ -21,6 +21,9 @@ def generar_plantilla(zip_xmls)-> pd.DataFrame:
     facturas[['ID de producto','Observación asignación de producto']] = facturas.apply(lambda x: asign_cve_prod_sap(x, asign_table), axis=1, result_type='expand')
     # asignamos la clave de retención
     facturas['Clave retención'] = facturas.apply(cve_retencion, axis=1)
+    # asignamos la clave de proveedor
+    base_prov = pd.read_excel(PATH_BASE_PROV)
+    facturas = facturas.merge(base_prov, on='RFC', how='left')
     return facturas
 
 def conceptos_cartaporte(zip_xmls)-> pd.DataFrame:
@@ -28,7 +31,9 @@ def conceptos_cartaporte(zip_xmls)-> pd.DataFrame:
     xml_files = get_xml_files_from_zip(zip_xmls)
     cartasporte = read_cartaporte(xml_files)
     conceptos = conceptos_df(read_conceptos(xml_files))
+    # emisor = read_emisor(xml_files)
     df = conceptos.merge(cartasporte, on='UUID', how='left')
+    # df = df.merge(emisor, on='UUID', how='left')
 
     df['Tiene CCP'] = df['Version'].notnull()
 
@@ -66,9 +71,7 @@ def cve_retencion(row):
             
 
 def read_cartaporte(xml_list: list)-> pd.DataFrame:
-
     xsd_data = load_xsd_data(nodos=NODOS, xsd_paths=XSD_PATHS, versiones=VERSIONES)
-
     data = read_cfdi_list(
         xml_paths=xml_list,
         nodos=NODOS,
@@ -80,6 +83,23 @@ def read_cartaporte(xml_list: list)-> pd.DataFrame:
     data = [ccp['CartaPorte'] for register in data  for _, ccp in register.items() if ccp is not None]
     data = [lista[0] for lista in data if len(lista)>0]
     return pd.DataFrame(data)
+
+def read_emisor(xml_list: list)-> pd.DataFrame:            
+    xsd_data = load_xsd_data(nodos=NODOS, xsd_paths=XSD_PATHS, versiones=VERSIONES)
+    data = read_cfdi_list(
+        xml_paths=xml_list,
+        nodos={'cfdi': ['Emisor',]},
+        atributos=ATRIBUTOS_PREDET,
+        xsd_data=xsd_data,
+        tipos=['cfdi'],
+    )
+    # Unpack the data
+    data = [line['Emisor'] for register in data  for _, line in register.items() if line is not None]
+    data = [lista[0] for lista in data if len(lista)>0]
+    data = pd.DataFrame(data)
+    # Nombre de las columnas
+    data.rename(columns={'Rfc':'RFC Emisor','Nombre':'Nombre Emisor'}, inplace=True)
+    return data
 
 def conceptos_df(lista)-> pd.DataFrame:
 

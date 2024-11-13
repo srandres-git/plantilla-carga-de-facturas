@@ -12,7 +12,7 @@ for tipo in VERSIONES.keys():
         XSD_PATHS[ver] = f'./xsd_files/{tipo}/{ver}.xsd'
 
 NODOS_CARTAPORTE = ['CartaPorte', ]
-NODOS_CFDI = ['Concepto',]
+NODOS_CFDI = ['Emisor',]
 NODOS_TFD = []
 NODOS = {'cfdi': NODOS_CFDI, 'cartaporte': NODOS_CARTAPORTE, 'tfd': NODOS_TFD}
 NODOS_PREDET = {'cfdi':[ 'Comprobante'], 'cartaporte': [], 'tfd': []}
@@ -20,6 +20,7 @@ NODOS_PREDET = {'cfdi':[ 'Comprobante'], 'cartaporte': [], 'tfd': []}
 ATRIBUTOS_PREDET = {
     'cfdi':{
         'Concepto': ['CveProdServ', 'DescCveProdServ', 'Descripcion', 'Importe'],
+        'Emisor': ['Rfc', 'Nombre'],
     },
     'cartaporte':{
         'CartaPorte': ['Version','TranspInternac', 'EntradaSalidaMerc'],
@@ -103,3 +104,6 @@ CVES_GEN = ['1010101','01010101']
 
 # Archivo que relaciona las claves de productos con las descripciones para aquellos que no son de transporte ni tienen retención
 PATH_CVES_NO_TRANSP_SIN_RET = './cves_prod_no_transp_sin_ret.xlsx'
+
+# Archivo de base de proveedores
+PATH_BASE_PROV = './base_proveedores.xlsx'
