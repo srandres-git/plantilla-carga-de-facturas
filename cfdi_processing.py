@@ -2,7 +2,7 @@ from funciones_prev import generar_diccionarios
 from cfdi_inspection import read_cfdi_list, load_xsd_data
 from file_management import get_xml_files_from_zip
 from asignacion_producto import analisis_descripcion, asign_cve_prod_sap
-from config import NODOS, XSD_PATHS, VERSIONES, ATRIBUTOS_PREDET, PATH_CVES_NO_TRANSP_SIN_RET, PATH_BASE_PROV
+from config import CAMPOS_CCP, NODOS, XSD_PATHS, VERSIONES, ATRIBUTOS_PREDET, PATH_CVES_NO_TRANSP_SIN_RET, PATH_BASE_PROV
 import pandas as pd
 import xml.etree.ElementTree as ET
 
@@ -32,9 +32,10 @@ def conceptos_cartaporte(zip_xmls)-> pd.DataFrame:
     cartasporte = read_cartaporte(xml_files)
     conceptos = conceptos_df(read_conceptos(xml_files))
     # emisor = read_emisor(xml_files)
+    if cartasporte.empty:
+        cartasporte = pd.DataFrame(columns=ATRIBUTOS_PREDET['cartaporte']['CartaPorte']+['UUID'])
     df = conceptos.merge(cartasporte, on='UUID', how='left')
     # df = df.merge(emisor, on='UUID', how='left')
-
     df['Tiene CCP'] = df['Version'].notnull()
 
     return df
