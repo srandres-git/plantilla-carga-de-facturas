@@ -5,6 +5,7 @@ from asignacion_producto import analisis_descripcion, asign_cve_prod_sap
 from config import CAMPOS_CCP, NODOS, XSD_PATHS, VERSIONES, ATRIBUTOS_PREDET, PATH_CVES_NO_TRANSP_SIN_RET, PATH_BASE_PROV
 import pandas as pd
 import xml.etree.ElementTree as ET
+import lxml.etree as etree
 
 def generar_plantilla(zip_xmls)-> pd.DataFrame:
     """Genera un DataFrame con la plantilla para carga de facturas a SAP"""
@@ -159,11 +160,16 @@ def read_conceptos(nombres_archivos: list[str])-> list:
     for archivo in nombres_archivos:
 
             #Lectura del xml
-            archivo.seek(0) # Regresa al inicio del archivo
-            tree = ET.parse(archivo)
+            try:
+                archivo.seek(0) # Asegurarse de que el archivo esté al inicio
+                tree = etree.parse(archivo)
+            except Exception as e:
+                print(f"Error al leer el archivo {archivo}: {e}")
+                return None
             root = tree.getroot()
             nombre = archivo.name
             nombre = nombre.replace(".xml","")
+            nombre = nombre.split("/")[-1]
             nodo = generar_diccionarios(root)
             
             #Se saca la fecha
