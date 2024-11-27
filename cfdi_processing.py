@@ -165,7 +165,7 @@ def read_conceptos(nombres_archivos: list[str])-> list:
                 tree = etree.parse(archivo)
             except Exception as e:
                 print(f"Error al leer el archivo {archivo}: {e}")
-                return None
+                continue
             root = tree.getroot()
             nombre = archivo.name
             nombre = nombre.replace(".xml","")
