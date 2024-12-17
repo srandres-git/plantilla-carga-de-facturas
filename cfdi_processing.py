@@ -2,7 +2,7 @@ from funciones_prev import generar_diccionarios
 from cfdi_inspection import read_cfdi_list, load_xsd_data
 from file_management import get_xml_files_from_zip
 from asignacion_producto import analisis_descripcion, asign_cve_prod_sap
-from config import CAMPOS_CCP, NODOS, XSD_PATHS, VERSIONES, ATRIBUTOS_PREDET, PATH_CVES_NO_TRANSP_SIN_RET, PATH_BASE_PROV
+from config import CAMPOS_CCP, NODOS, XSD_PATHS, VERSIONES, ATRIBUTOS_PREDET, PATH_CVES_NO_TRANSP_SIN_RET, PATH_BASE_PROV, COLS_PLANTILLA
 import pandas as pd
 import xml.etree.ElementTree as ET
 import lxml.etree as etree
@@ -21,11 +21,30 @@ def generar_plantilla(zip_xmls)-> pd.DataFrame:
     # asignamos la clave de producto
     facturas[['ID de producto','Observación asignación de producto']] = facturas.apply(lambda x: asign_cve_prod_sap(x, asign_table), axis=1, result_type='expand')
     # asignamos la clave de retención
-    facturas['Clave retención'] = facturas.apply(cve_retencion, axis=1)
-    # asignamos la clave de proveedor
-    base_prov = pd.read_excel(PATH_BASE_PROV)
+    facturas['Código de retención'] = facturas.apply(cve_retencion, axis=1)
+    # asignamos la clave de proveedor, incluyendo solo la primera coincidencia
+    base_prov = pd.read_excel(PATH_BASE_PROV).drop_duplicates(subset='RFC')
     facturas = facturas.merge(base_prov, on='RFC', how='left')
-    return facturas
+    # asignamos la clave de impuesto
+    facturas['Código de impuesto'] = facturas.apply(cod_impuesto, axis=1)
+    # Fecha de contabilización de momento es la fecha de factura
+    facturas['Fecha de contabilización'] = facturas['Fecha de factura']
+    # Fecha de recepción y fecha de vencimiento de momento quedan vacías
+    facturas['Fecha de recepción'] = ''
+    facturas['Fecha de vencimiento'] = ''   
+    # Documento externo de momento queda vacío
+    facturas['Documento externo'] = ''
+    # renombramos UUID a Folio fiscal, y otras columnas
+    facturas.rename(columns={'UUID':'Folio fiscal',
+                             'Nombre del archivo': 'Nombre archivo XML',
+                             'Descripcion':'Descripción concepto XML'}, inplace=True)
+    # la descripción de la plantilla es distinta a la de los conceptos, de momento se deja vacía
+    facturas['Descripción'] = ''
+    # Asignamos campos constantes
+    facturas['Tipo de asignación'] = 'CC'
+    facturas['Asignación'] = 'MLG1405'
+    facturas['Empresa compradora'] = 'MLG1000'
+    return facturas[COLS_PLANTILLA]
 
 def conceptos_cartaporte(zip_xmls)-> pd.DataFrame:
     """Genera un DataFrame con el desglose de los conceptos y atributos de carta porte de un archivo ZIP con XML's de CFDI"""
@@ -54,23 +73,53 @@ def obtener_base(row, tasa, col_base:str, col_impuesto:str):
     else:
         return 0
 
+# def cve_retencion(row):
+#     """Asigna la clave de retención a una fila de un DataFrame"""
+#     iva_ret_4 = row['Base IVA 4% Retencion']
+#     iva_16 = row['Base IVA 16% Traslado']
+#     producto = row['ID de producto']
+
+#     if producto == 'FLETE_TER_N':
+#         if iva_ret_4 > 0:
+#             return 'A3V'
+#         else:
+#             return 'G1I'
+#     else:
+#         if iva_ret_4 > 0:
+#             return None
+#         else:
+#             return None # Revisar si se debe asignar una clave de retención
 def cve_retencion(row):
     """Asigna la clave de retención a una fila de un DataFrame"""
-    iva_ret_4 = row['Base IVA 4% Retencion']
-    iva_16 = row['Base IVA 16% Traslado']
-    producto = row['ID de producto']
-
-    if producto == 'FLETE_TER_N':
-        if iva_ret_4 > 0:
-            return 'A3V'
-        else:
-            return 'G1I'
+    tasas_retencion = str(row['Tasa o cuota retencion']).split('|')
+    tasas_retencion = [round(float(t)*10000) for t in tasas_retencion if t != '' ]
+    if 125 and 400 in tasas_retencion:
+        return 'A11A'
+    elif 125 in tasas_retencion:
+        return 'A12B'
+    elif 400 in tasas_retencion:
+        return 'A3V'
+    elif 0 in tasas_retencion:
+        return 'G1I'
     else:
-        if iva_ret_4 > 0:
-            return None
+        return None
+        
+def cod_impuesto(row):
+    """Asigna la clave de impuesto (IVA) a una fila de un DataFrame"""
+    tasa_iva = row['Tasa o cuota IVA']
+    try:
+        tasa_iva = round(float(tasa_iva)*100)
+        if tasa_iva == 16:
+            return '3'
+        elif tasa_iva == 8:
+            return '15'
+        elif tasa_iva == 0:
+            return '1'
         else:
-            return None # Revisar si se debe asignar una clave de retención
-            
+            return None
+    except Exception as e:
+        print(f"Error al convertir la tasa de IVA {tasa_iva}: {e}")
+        return None
 
 def read_cartaporte(xml_list: list)-> pd.DataFrame:
     xsd_data = load_xsd_data(nodos=NODOS, xsd_paths=XSD_PATHS, versiones=VERSIONES)
@@ -106,7 +155,7 @@ def read_emisor(xml_list: list)-> pd.DataFrame:
 def conceptos_df(lista)-> pd.DataFrame:
 
     df = pd.DataFrame(lista, columns = ["Nombre del archivo",
-                                    "Fecha",
+                                    "Fecha de factura",
                                     "Tipo de comprobante",
                                     "Moneda",
                                     "RFC",
@@ -139,7 +188,8 @@ def conceptos_df(lista)-> pd.DataFrame:
 
     #Se crea la columna donde extrar el número de servicio según la descripción
     df["Servicio"] = df["Descripcion"].str.extract(r"(\d{2}-\d{6})")
-
+    # Asignar el número de documento ("No. Doc")
+    df["No. Doc"] = df["Nombre del archivo"].factorize()[0] + 1
     #Crea el número de posición dentro de la misma factura
     df["Posicion"] = df.groupby("Nombre del archivo").cumcount() + 1
 
@@ -150,8 +200,10 @@ def conceptos_df(lista)-> pd.DataFrame:
     df["Empresa compradora"] = "MLG1000"
 
     #Crea la columna cantidad
-    df["Cantidad"] = 1
+    df["Cantidad"] = 1 
 
+    # formatea la fecha
+    df["Fecha de factura"] = pd.to_datetime(df["Fecha de factura"], format="%Y-%m-%dT%H:%M:%S").dt.strftime("%d/%m/%Y")
     return(df)
 
 def read_conceptos(nombres_archivos: list[str])-> list:
@@ -168,7 +220,7 @@ def read_conceptos(nombres_archivos: list[str])-> list:
                 continue
             root = tree.getroot()
             nombre = archivo.name
-            nombre = nombre.replace(".xml","")
+            nombre = nombre.replace(".xml","").replace(".XML","")
             nombre = nombre.split("/")[-1]
             nodo = generar_diccionarios(root)
             

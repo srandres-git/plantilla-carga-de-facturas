@@ -53,7 +53,7 @@ def find_service(row):
     formato AA-XXXXXX
     """    
     # Expresión regular para el patrón AA-XXXXXX
-    pattern = rf'(2[34]+)[ ]?[- _]+[ ]?(\d{{6}})'
+    pattern = rf'(2[01234])[ ]?[- _‐]+[ ]?(\d{{5,6}})[^\d]' # solo se aceptan años 202X
     # Buscar el patrón en el texto de cada columna de la lista cols_service
     for col in COLS_SERVICE:
         matches = re.findall(pattern, row[col])
@@ -71,7 +71,7 @@ def analisis_descripcion(df_facturas : pd.DataFrame)-> pd.DataFrame:
     # Buscar palabras clave
     df_facturas['Palabras clave'] = df_facturas['Descripcion'].apply(lambda x: concat_keywords(get_keywords(x, CONCEPTOS)))
     # Encontrar número de servicio
-    df_facturas['Servicio'] = df_facturas.apply(find_service, axis=1)
+    df_facturas['No. Servicio'] = df_facturas.apply(find_service, axis=1)
     return df_facturas
 
 # _____________________________________________________________

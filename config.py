@@ -107,3 +107,10 @@ PATH_CVES_NO_TRANSP_SIN_RET = './cves_prod_no_transp_sin_ret.xlsx'
 
 # Archivo de base de proveedores
 PATH_BASE_PROV = './base_proveedores.xlsx'
+
+# columnas que se exportarán a la plantilla
+COLS_PLANTILLA = ['No. Doc', 'Posicion', 'Tipo de documento', 'Tipo de asignación', 'Asignación', 'Proveedor', 'Empresa compradora', 
+                  'No. Servicio', 'Moneda', 'Documento externo', 'Folio fiscal', 'Fecha de recepción', 'Fecha de factura',
+                  'Fecha de contabilización', 'Fecha de vencimiento', 'ID de producto','Cantidad', 'Precio neto',
+                  'Código de impuesto', 'Código de retención' , 'Importe de impuesto', 
+                  'Nombre archivo XML', 'Descripción', 'Observación asignación de producto', 'Clave de producto o servicio','Descripción concepto XML']
