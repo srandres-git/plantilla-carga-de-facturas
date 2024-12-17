@@ -23,4 +23,7 @@ zip_path = r"C:\Users\Andres Sanchez\OneDrive - OPEN LOG S.A DE C.V\Documentos\X
 # facturas['Clave retención'] = facturas.apply(cve_retencion, axis=1)
 # print(facturas[['ID de producto','Observación asignación de producto','Clave retención']])
 plantilla = generar_plantilla(zip_path)
-print(plantilla[['ID de producto','Observación asignación de producto','Clave retención']])
+print(plantilla.columns)
+print(plantilla)
+# exportamos a excel
+plantilla.to_excel('checar.xlsx', index=False, freeze_panes=(1,0))
