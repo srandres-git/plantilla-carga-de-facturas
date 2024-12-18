@@ -33,7 +33,7 @@ def generar_plantilla(zip_xmls)-> pd.DataFrame:
     facturas['Fecha de recepción'] = ''
     facturas['Fecha de vencimiento'] = ''   
     # Documento externo de momento queda vacío
-    facturas['Documento externo'] = ''
+    facturas['Documento externo'] = facturas['Nombre del archivo']
     # renombramos UUID a Folio fiscal, y otras columnas
     facturas.rename(columns={'UUID':'Folio fiscal',
                              'Nombre del archivo': 'Nombre archivo XML',
@@ -93,6 +93,7 @@ def cve_retencion(row):
     """Asigna la clave de retención a una fila de un DataFrame"""
     tasas_retencion = str(row['Tasa o cuota retencion']).split('|')
     tasas_retencion = [round(float(t)*10000) for t in tasas_retencion if t != '' ]
+
     if 125 in tasas_retencion and 400 in tasas_retencion:
         return 'A11A'
     elif 125 in tasas_retencion:
@@ -177,7 +178,7 @@ def conceptos_df(lista)-> pd.DataFrame:
     #Se crea la columna donde extrar el número de servicio según la descripción
     df["Servicio"] = df["Descripcion"].str.extract(r"(\d{2}-\d{6})")
     # Asignar el número de documento ("No. Doc")
-    df["No. Doc"] = df["Nombre del archivo"].factorize()[0] + 1
+    df["No. Doc"] = df["Nombre del archivo"]
     #Crea el número de posición dentro de la misma factura
     df["Posicion"] = df.groupby("Nombre del archivo").cumcount() + 1
 
