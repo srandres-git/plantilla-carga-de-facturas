@@ -7,7 +7,7 @@ from funciones_prev import generar_reporte
 from asignacion_producto import analisis_descripcion, asign_cve_prod_sap
 from config import PATH_CVES_NO_TRANSP_SIN_RET
 
-zip_path = r"C:\Users\Andres Sanchez\OneDrive - OPEN LOG S.A DE C.V\Documentos\XML files\Prueba plantilla.zip"
+zip_path = r"C:\Users\Andres Sanchez\OneDrive - OPEN LOG S.A DE C.V\Documentos\XML files\24-031491-290519.zip"
 # zip_path = r"C:\Users\Andres Sanchez\OneDrive - OPEN LOG S.A DE C.V\Documentos\XML files\Acumulado XML.zip"
 # xml_files = get_xml_files_from_zip(zip_path)
 # print(xml_files[0])

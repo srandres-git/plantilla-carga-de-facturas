@@ -93,7 +93,7 @@ def cve_retencion(row):
     """Asigna la clave de retención a una fila de un DataFrame"""
     tasas_retencion = str(row['Tasa o cuota retencion']).split('|')
     tasas_retencion = [round(float(t)*10000) for t in tasas_retencion if t != '' ]
-    if 125 and 400 in tasas_retencion:
+    if 125 in tasas_retencion and 400 in tasas_retencion:
         return 'A11A'
     elif 125 in tasas_retencion:
         return 'A12B'
@@ -168,18 +168,6 @@ def conceptos_df(lista)-> pd.DataFrame:
                                     "Tasa o cuota retencion",
                                     "Importe de retencion",
                                     "UUID"])
-
-    #Filtro para crear la columna con el código de retención
-    df.loc[df["Tasa o cuota retencion"] == "0.012500|0.04|", "Clave retencion"] = "A11A"
-    df.loc[df["Tasa o cuota retencion"] == "0.04|0.012500|", "Clave retencion"] = "A11A"
-    df.loc[df["Tasa o cuota retencion"] == "0.040000|0.012500|", "Clave retencion"] = "A11A"
-    df.loc[df["Tasa o cuota retencion"] == "0.012500|0.040000|", "Clave retencion"] = "A11A"
-    df.loc[df["Tasa o cuota retencion"] == "0.012500|", "Clave retencion"] = "A12B"
-    df.loc[df["Tasa o cuota retencion"] == "0.040000|", "Clave retencion"] = "A3V"
-    df.loc[df["Tasa o cuota retencion"  ] == 0, "Clave retencion"] = ""
-
-    # #Filtro para LAR MEX
-    # df.loc[(df["RFC"] == "TLM7201085N4") & (df["Tasa o cuota IVA"] != "0.160000"), "Clave retencion"] = "G1I"
 
     #Se crea la columna de tipo de documento
     df.loc[df["Tipo de comprobante"] == "I", "Tipo de documento"] = "Factura"
