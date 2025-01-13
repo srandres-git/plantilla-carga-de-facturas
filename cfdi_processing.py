@@ -2,7 +2,7 @@ from funciones_prev import generar_diccionarios
 from cfdi_inspection import read_cfdi_list, load_xsd_data
 from file_management import get_xml_files_from_zip
 from asignacion_producto import analisis_descripcion, asign_cve_prod_sap
-from config import CAMPOS_CCP, NODOS, XSD_PATHS, VERSIONES, ATRIBUTOS_PREDET, PATH_CVES_NO_TRANSP_SIN_RET, PATH_BASE_PROV, COLS_PLANTILLA
+from config import CAMPOS_CCP, COLS_ATTR_IMPUESTO, CVES_IMPUESTO, NODOS, NODOS_IMPUESTOS, XSD_PATHS, VERSIONES, ATRIBUTOS_PREDET, PATH_CVES_NO_TRANSP_SIN_RET, PATH_BASE_PROV, COLS_PLANTILLA
 import pandas as pd
 import xml.etree.ElementTree as ET
 import lxml.etree as etree
@@ -12,8 +12,8 @@ def generar_plantilla(zip_xmls)-> pd.DataFrame:
     # leer los archivos xml y generamos el desglose de conceptos y cruce con carta porte
     facturas = conceptos_cartaporte(zip_xmls)
     # Generamos columnas de base de retención  y traslado de IVA
-    facturas['Base IVA 16% Traslado'] = facturas.apply(lambda x: obtener_base(x, 0.16, 'Precio neto', 'Importe de impuesto'), axis=1)
-    facturas['Base IVA 4% Retencion'] = facturas.apply(lambda x: obtener_base(x, 0.04, 'Base individual retencion', 'Importe de retencion'), axis=1)
+    # facturas['Base IVA 16% Traslado'] = facturas.apply(lambda x: obtener_base(x, 0.16, 'Precio neto', 'Importe de impuesto'), axis=1)
+    # facturas['Base IVA 4% Retencion'] = facturas.apply(lambda x: obtener_base(x, 0.04, 'Base individual retencion', 'Importe de retencion'), axis=1)
     # realizamos el análisis de la descripción
     facturas = analisis_descripcion(facturas)
     # Cargamos la tabla de asignación de productos
@@ -24,11 +24,11 @@ def generar_plantilla(zip_xmls)-> pd.DataFrame:
     facturas['Código de retención'] = facturas.apply(cve_retencion, axis=1)
     # asignamos la clave de proveedor, incluyendo solo la primera coincidencia
     base_prov = pd.read_excel(PATH_BASE_PROV).drop_duplicates(subset='RFC')
-    facturas = facturas.merge(base_prov, on='RFC', how='left')
+    facturas = facturas.merge(base_prov, left_on='Emisor_Rfc',right_on='RFC', how='left')
     # asignamos la clave de impuesto
     facturas['Código de impuesto'] = facturas.apply(cod_impuesto, axis=1)
     # Fecha de contabilización de momento es la fecha de factura
-    facturas['Fecha de contabilización'] = facturas['Fecha de factura']
+    facturas['Fecha de contabilización'] =  pd.to_datetime(facturas["Comprobante_Fecha"], format="%Y-%m-%dT%H:%M:%S").dt.strftime("%d/%m/%Y")
     # Fecha de recepción y fecha de vencimiento de momento quedan vacías
     facturas['Fecha de recepción'] = ''
     facturas['Fecha de vencimiento'] = ''   
@@ -44,19 +44,26 @@ def generar_plantilla(zip_xmls)-> pd.DataFrame:
     facturas['Tipo de asignación'] = 'CC'
     facturas['Asignación'] = 'MLG1405'
     facturas['Empresa compradora'] = 'MLG1000'
-    return facturas[COLS_PLANTILLA]
+    return facturas # facturas[COLS_PLANTILLA]
 
 def conceptos_cartaporte(zip_xmls)-> pd.DataFrame:
     """Genera un DataFrame con el desglose de los conceptos y atributos de carta porte de un archivo ZIP con XML's de CFDI"""
     xml_files = get_xml_files_from_zip(zip_xmls)
     cartasporte = read_cartaporte(xml_files)
-    conceptos = conceptos_df(read_conceptos(xml_files))
+    conceptos = read_conceptos_impuestos(xml_files)
     # emisor = read_emisor(xml_files)
     if cartasporte.empty:
         cartasporte = pd.DataFrame(columns=ATRIBUTOS_PREDET['cartaporte']['CartaPorte']+['UUID'])
+    print(f'columnas cartaporte: {cartasporte.columns}')
     df = conceptos.merge(cartasporte, on='UUID', how='left')
     # df = df.merge(emisor, on='UUID', how='left')
     df['Tiene CCP'] = df['Version'].notnull()
+
+    # numéricos a float
+    for col in ['Importe', 'Cantidad'] + [col for col in df.columns if 'Base' in col or 'Cuota' in col]:
+        df[col] = pd.to_numeric(df[col], errors="coerce")
+        # rellena con 0 los valores nulos
+        df[col] = df[col].fillna(0)
 
     return df
     # return conceptos
@@ -91,35 +98,31 @@ def obtener_base(row, tasa, col_base:str, col_impuesto:str):
 #             return None # Revisar si se debe asignar una clave de retención
 def cve_retencion(row):
     """Asigna la clave de retención a una fila de un DataFrame"""
-    tasas_retencion = str(row['Tasa o cuota retencion']).split('|')
-    tasas_retencion = [round(float(t)*10000) for t in tasas_retencion if t != '' ]
-    if 125 in tasas_retencion and 400 in tasas_retencion:
+    ret_iva = row['IVA_TasaOCuota_Ret']
+    ret_isr = row['ISR_TasaOCuota_Ret']
+    if ret_iva == 0.04 and ret_isr == 0.0125:
         return 'A11A'
-    elif 125 in tasas_retencion:
+    elif ret_isr == 0.0125:
         return 'A12B'
-    elif 400 in tasas_retencion:
+    elif ret_iva == 0.04:
         return 'A3V'
-    elif 0 in tasas_retencion:
+    elif ret_iva == 0:
         return 'G1I'
     else:
         return None
         
 def cod_impuesto(row):
     """Asigna la clave de impuesto (IVA) a una fila de un DataFrame"""
-    tasa_iva = row['Tasa o cuota IVA']
-    try:
-        tasa_iva = round(float(tasa_iva)*100)
-        if tasa_iva == 16:
-            return '3'
-        elif tasa_iva == 8:
-            return '15'
-        elif tasa_iva == 0:
-            return '1'
-        else:
-            return None
-    except Exception as e:
-        print(f"Error al convertir la tasa de IVA {tasa_iva}: {e}")
+    tasa_iva = row['IVA_TasaOCuota_Tras']
+    if tasa_iva == 0.16:
+        return '3'
+    elif tasa_iva == 0.08:
+        return '15'
+    elif tasa_iva == 0:
+        return '1'
+    else:
         return None
+
 
 def read_cartaporte(xml_list: list)-> pd.DataFrame:
     xsd_data = load_xsd_data(nodos=NODOS, xsd_paths=XSD_PATHS, versiones=VERSIONES)
@@ -134,6 +137,43 @@ def read_cartaporte(xml_list: list)-> pd.DataFrame:
     data = [ccp['CartaPorte'] for register in data  for _, ccp in register.items() if ccp is not None]
     data = [lista[0] for lista in data if len(lista)>0]
     return pd.DataFrame(data)
+
+def read_conceptos_impuestos(xml_list: list)-> pd.DataFrame:
+    xsd_data = load_xsd_data(nodos=NODOS, xsd_paths=XSD_PATHS, versiones=VERSIONES)
+    data = read_cfdi_list(
+        xml_paths=xml_list,
+        nodos=NODOS_IMPUESTOS,
+        atributos=ATRIBUTOS_PREDET,
+        xsd_data=xsd_data,
+        tipos=['cfdi'],
+    )
+    # Unpack the data
+    traslados = [concepto[('Concepto','Impuestos','Traslados', 'Traslado')] for register in data  for _, concepto in register.items() if concepto is not None]
+    traslados = [element for lista in traslados for element in lista]
+    retenciones = [concepto[('Concepto','Impuestos','Retenciones', 'Retencion')] for register in data  for _, concepto in register.items() if concepto is not None]
+    retenciones = [element for lista in retenciones for element in lista]
+    # Generar DataFrame con impuestos pivoteados
+    group_by_cols = ['UUID', 'ID_nodo_padre']
+    flattened_retenciones =pivot_impuestos(pd.DataFrame(retenciones), group_by_cols)
+    flattened_traslados = pivot_impuestos(pd.DataFrame(traslados), group_by_cols)
+    # merge
+    cols_ret = group_by_cols + [col for col in flattened_retenciones.columns if 'ISR' in col or 'IVA' in col or 'IEPS' in col]
+    impuestos = flattened_traslados.merge(flattened_retenciones[cols_ret], on=group_by_cols, how='outer', suffixes=('_Tras', '_Ret'))
+    return impuestos
+
+def pivot_impuestos(impuestos:pd.DataFrame, group_by_cols:list[str]):
+    """Genera un DataFrame con los impuestos pivoteados: 
+    Cada impuesto se convierte en una columna con los atributos Base, TipoFactor, TasaOCuota, etc."""
+    df = impuestos.copy()
+    for clave,impuesto in CVES_IMPUESTO.items():
+        for col in COLS_ATTR_IMPUESTO:
+            df[f'{impuesto}_{col}'] = df[col] .where(df['Impuesto'] == clave)
+
+    df.drop(columns=COLS_ATTR_IMPUESTO, inplace=True)
+    cols = df.columns.tolist()
+    for col in group_by_cols:
+        cols.remove(col)
+    return df.groupby(group_by_cols)[cols].first().reset_index()
 
 def read_emisor(xml_list: list)-> pd.DataFrame:            
     xsd_data = load_xsd_data(nodos=NODOS, xsd_paths=XSD_PATHS, versiones=VERSIONES)

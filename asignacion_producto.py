@@ -13,10 +13,12 @@ def format_description(df_facturas : pd.DataFrame)-> pd.DataFrame:
     """
     # descripción a mayúsculas
     df_facturas['Descripcion'] = df_facturas['Descripcion'].str.upper()
+    # None a cadena vacía
+    df_facturas['Descripcion'] = df_facturas['Descripcion'].fillna('')
     # CveProdServ a string
-    df_facturas['Clave de producto o servicio'] = df_facturas['Clave de producto o servicio'].astype(str)
+    df_facturas['Clave de producto o servicio'] = df_facturas['ClaveProdServ'].astype(str)
     # quitamos el '.0' de la columna CveProdServ
-    df_facturas['Clave de producto o servicio'] = df_facturas['Clave de producto o servicio'].str.replace('.0','')
+    df_facturas['Clave de producto o servicio'] = df_facturas['ClaveProdServ'].str.replace('.0','')
     # UUID a mayúsculas
     df_facturas['UUID'] = df_facturas['UUID'].str.upper()
     return df_facturas
@@ -97,8 +99,16 @@ def asign_cve_prod_sap(row, asign_table:pd.DataFrame):
     """
     cve_sat = row['Clave de producto o servicio']
     # desc_cve_sat = row['DescCveProdServ']
-    base_iva_16 = row['Base IVA 16% Traslado']
-    base_ret_iva_4 = row['Base IVA 4% Retencion']
+    tasa_tras_iva = row['IVA_TasaOCuota_Tras']
+    tasa_ret_iva = row['IVA_TasaOCuota_Ret']
+    if tasa_tras_iva:
+        base_iva_16 = row['IVA_Base_Tras'] if tasa_tras_iva==0.16 else 0
+    else:
+        base_iva_16 = 0
+    if tasa_ret_iva:
+        base_ret_iva_4 = row['IVA_Base_Ret'] if tasa_ret_iva==0.04 else 0
+    else:
+        base_ret_iva_4 = 0
     ccp = row['Tiene CCP']
     transp_internac = row['TranspInternac']
     entrada_salida = row['EntradaSalidaMerc']

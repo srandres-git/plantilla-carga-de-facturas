@@ -12,14 +12,18 @@ for tipo in VERSIONES.keys():
         XSD_PATHS[ver] = f'./xsd_files/{tipo}/{ver}.xsd'
 
 NODOS_CARTAPORTE = ['CartaPorte', ]
-NODOS_CFDI = ['Emisor',]
+NODOS_CFDI = [('Emisor',),('Concepto','Impuestos','Traslados', 'Traslado'), ('Concepto','Impuestos','Retenciones', 'Retencion'),]
+NODOS_IMPUESTOS = {'cfdi':[('Concepto','Impuestos','Traslados', 'Traslado'), ('Concepto','Impuestos','Retenciones', 'Retencion')]}
 NODOS_TFD = []
 NODOS = {'cfdi': NODOS_CFDI, 'cartaporte': NODOS_CARTAPORTE, 'tfd': NODOS_TFD}
 NODOS_PREDET = {'cfdi':[ 'Comprobante'], 'cartaporte': [], 'tfd': []}
 
 ATRIBUTOS_PREDET = {
     'cfdi':{
-        'Concepto': ['CveProdServ', 'DescCveProdServ', 'Descripcion', 'Importe'],
+        'Comprobante': ['Fecha','TipoDeComprobante','Moneda'],
+        'Concepto': ['ClaveProdServ', 'Descripcion', 'Importe', 'ObjetoImp', 'Cantidad'],
+       'Traslado': ['Base', 'Impuesto', 'TipoFactor', 'TasaOCuota', ],
+        'Retencion': ['Base', 'Impuesto', 'TipoFactor', 'TasaOCuota', ],
         'Emisor': ['Rfc', 'Nombre'],
     },
     'cartaporte':{
@@ -29,6 +33,9 @@ ATRIBUTOS_PREDET = {
 
     },
 }
+
+CVES_IMPUESTO = {'001': 'ISR', '002': 'IVA', '003': 'IEPS'}
+COLS_ATTR_IMPUESTO = ['Base', 'TipoFactor','TasaOCuota']
 # _____________________________________________________________
 
 NOMBRES = {'cfdi': 'CFDI', 'cartaporte': 'Carta Porte', 'tfd': 'Timbre Fiscal'}
@@ -113,4 +120,8 @@ COLS_PLANTILLA = ['No. Doc', 'Posicion', 'Tipo de documento', 'Tipo de asignaci�
                   'No. Servicio', 'Moneda', 'Documento externo', 'Folio fiscal', 'Fecha de recepción', 'Fecha de factura',
                   'Fecha de contabilización', 'Fecha de vencimiento', 'ID de producto','Cantidad', 'Precio neto',
                   'Código de impuesto', 'Código de retención' , 'Importe de impuesto', 
-                  'Nombre archivo XML', 'Descripción', 'Observación asignación de producto', 'Clave de producto o servicio','Descripción concepto XML']
+                  'Nombre archivo XML', 'Descripción', 'Observación asignación de producto', 'Clave de producto o servicio','Descripción concepto XML',
+                  "Importe de impuesto", 
+                                    "Base individual retencion",
+                                    "Tasa o cuota retencion",
+                                    "Importe de retencion",]

@@ -10,7 +10,7 @@ import os
 from datetime import datetime
 from file_management import export_to_excel, get_xml_files, path_m_date, read_template
 from exception_handling import CFDIAttributeNotFound, CFDIInspectionError, CFDINoAttributesError, CFDINodeNotFound, FileNotFoundError, InvalidXSDPathError, XMLParseError, XSDParseError
-from config import DEFAULT_DELAY
+from config import DEFAULT_DELAY, ATRIBUTOS_PREDET
 # _____________________________________________________________
 # FUNCIONES DE INSPECCIÓN DE CFDI
 
@@ -24,7 +24,8 @@ def extract_common_attributes(root: etree.Element, file_path: str) -> dict[str, 
     # Agregar el namespace de TFD
     namespaces['tfd'] = 'http://www.sat.gob.mx/TimbreFiscalDigital'
 
-    #emisor_xpath = generate_xpaths([('Emisor',)], namespaces, 'cfdi', deep=True)[('Emisor',)]
+    emisor_xpath = generate_xpaths([('Emisor',)], namespaces, 'cfdi', deep=True)[('Emisor',)]
+    comprobante_xpath = etree.XPath('//cfdi:Comprobante', namespaces=namespaces)
     tfd_xpath = generate_xpaths([('TimbreFiscalDigital',)], namespaces, 'tfd', deep=True)[('TimbreFiscalDigital',)]
     # Extraemos los valores de los nodos
     try:
@@ -35,28 +36,37 @@ def extract_common_attributes(root: etree.Element, file_path: str) -> dict[str, 
     except IndexError:
         CFDINodeNotFound('TimbreFiscalDigital', file_path).show()
         uuid = None
-    # try:
-    #     nodo_emisor = emisor_xpath(root)[0]
-    #     try:
-    #         rfc_emisor = nodo_emisor.get('Rfc')
-    #         if rfc_emisor is None or rfc_emisor == '':
-    #             CFDIAttributeNotFound('Emisor_RFC', file_path).show()
-    #             rfc_emisor = None
-    #     except AttributeError:
-    #         CFDIAttributeNotFound('Emisor_RFC', file_path).show()
-    #         rfc_emisor = None
-    #     try:
-    #         nombre_emisor = nodo_emisor.get('Nombre')
-    #         if nombre_emisor is None or nombre_emisor == '':
-    #             CFDIAttributeNotFound('Emisor_Nombre', file_path).show()
-    #             nombre_emisor = None
-    #     except AttributeError:
-    #         CFDIAttributeNotFound('Emisor_Nombre', file_path).show()
-    #         nombre_emisor = None
-    # except IndexError:
-    #     CFDINodeNotFound('Emisor', file_path).show()
-    #     rfc_emisor = None
-    #     nombre_emisor = None
+    emisor_extracted_attributes = {}
+    try:
+        nodo_emisor = emisor_xpath(root)[0]
+        for attr in ATRIBUTOS_PREDET['cfdi']['Emisor']:
+            try:
+                emisor_extracted_attributes[f'Emisor_{attr}'] = nodo_emisor.get(attr)
+                if emisor_extracted_attributes[f'Emisor_{attr}'] is None or emisor_extracted_attributes[f'Emisor_{attr}'] == '':
+                    CFDIAttributeNotFound(f'Emisor_{attr}', file_path).show()
+                    emisor_extracted_attributes[f'Emisor_{attr}'] = None
+            except AttributeError:
+                CFDIAttributeNotFound(f'Emisor_{attr}', file_path).show()
+                emisor_extracted_attributes[f'Emisor_{attr}'] = None
+    except IndexError:
+        CFDINodeNotFound('Emisor', file_path).show()
+        emisor_extracted_attributes = {f'Emisor_{attr}': None for attr in ATRIBUTOS_PREDET['cfdi']['Emisor']}
+
+    comprobante_extracted_attributes = {}
+    try:
+        nodo_comprobante = comprobante_xpath(root)[0]
+        for attr in ATRIBUTOS_PREDET['cfdi']['Comprobante']:
+            try:
+                comprobante_extracted_attributes[f'Comprobante_{attr}'] = nodo_comprobante.get(attr)
+                if comprobante_extracted_attributes[f'Comprobante_{attr}'] is None or comprobante_extracted_attributes[f'Comprobante_{attr}'] == '':
+                    CFDIAttributeNotFound(f'Comprobante_{attr}', file_path).show()
+                    comprobante_extracted_attributes[f'Comprobante_{attr}'] = None
+            except AttributeError:
+                CFDIAttributeNotFound(f'Comprobante_{attr}', file_path).show()
+                comprobante_extracted_attributes[f'Comprobante_{attr}'] = None
+    except IndexError:
+        CFDINodeNotFound('Comprobante', file_path).show()
+        comprobante_extracted_attributes = {f'Comprobante_{attr}': None for attr in ATRIBUTOS_PREDET['cfdi']['Comprobante']}
     
     # Extraer la ruta y carpeta del archivo
     # cambiar '\\' por '/'
@@ -65,15 +75,18 @@ def extract_common_attributes(root: etree.Element, file_path: str) -> dict[str, 
     #folder_path = os.path.dirname(file_path).split('/')[-1]
     # Fecha de modificación del archivo
     #file_m_date = path_m_date(file_path).strftime('%Y-%m-%d')
+    # Nombre del archivo
+    file_name = os.path.basename(file_path.name).replace('.xml','').replace('.XML','')
     
     common_attributes = {
         'UUID': uuid,
-        #'Emisor_RFC': rfc_emisor,
-        #'Emisor_Nombre': nombre_emisor,
         #'Ruta_Archivo': file_path,
         #'Fecha_Modificacion': file_m_date,
-        #'Carpeta_Archivo': folder_path
+        #'Carpeta_Archivo': folder_path,
+        'Nombre del archivo': file_name
     }
+    common_attributes.update(emisor_extracted_attributes)
+    common_attributes.update(comprobante_extracted_attributes)
 
     return common_attributes
 
@@ -126,6 +139,81 @@ def extraer_elementos_atributos(
             data[ruta].append(datos_atributos)    
     return data
 
+def extraer_elementos_atributos_anidados(
+    root: etree.Element,  # Elemento raíz del árbol XML
+    elementos_anidados: list[tuple[str, ...]],  # Tuplas con secuencias de elementos (padre, hijo, nieto, ...)
+    atributos_por_elemento: dict[str, list[str]],  # Diccionario de atributos por elemento
+    xpaths: dict[tuple[str, ...], etree.XPath],  # Diccionario de XPaths por elemento anidado
+) -> dict[str, list[dict[str, str]]]:  # El retorno es un dict con listas de dicts
+    """
+    Extrae elementos y atributos anidados de un archivo XML basado en una lista de rutas de elementos y XPaths.
+
+    :param root: Elemento raíz del árbol XML.
+    :param elementos_anidados: Lista de tuplas que representan la secuencia de elementos (padre, hijo, nieto, ...).
+    :param atributos_por_elemento: Diccionario que mapea elementos a listas de atributos.
+    :param xpaths: Diccionario de XPaths por elemento anidado.
+    :return: Diccionario que mapea cada ruta a una lista de diccionarios con atributos combinados por nivel.
+    """
+    # Diccionario para almacenar los resultados
+    data = {}
+
+    # Recorrer las tuplas de elementos anidados
+    for ruta in elementos_anidados:
+        # Inicializar la lista para las ocurrencias de esta ruta
+        data[ruta] = []
+
+        # Buscar nodos en el nivel más alto (primer elemento de la ruta)
+        try:
+            nodos_padre = xpaths[(ruta[0],)](root)
+        except KeyError:
+            print(f"Error: XPath no encontrado para la ruta inicial {ruta}.")
+            continue
+        except Exception as e:
+            print(f"Error procesando XPath para la ruta inicial {ruta}: {e}")
+            continue
+
+        # Procesar cada nodo padre
+        for k,nodo_padre in enumerate(nodos_padre):
+            # Inicializar una lista de nodos a procesar desde este nodo
+            nodos_a_procesar = [(nodo_padre, {f"{atrib}": nodo_padre.get(atrib) for atrib in atributos_por_elemento.get(ruta[0], [])})]
+            # agregamsos ID de nodo padre
+            nodos_a_procesar[0][1]['ID_nodo_padre'] = k
+            # Recorrer los niveles de la ruta
+            for i, nivel in enumerate(ruta[1:], start=1):
+                nuevos_nodos_a_procesar = []
+                for nodo_actual, atributos_acumulados in nodos_a_procesar:
+                    try:
+                        # Buscar nodos hijos en el nivel actual
+                        nodos_hijos = xpaths[ruta[i:i + 1]](nodo_actual)
+                        if nodos_hijos:
+                            # Si hay hijos, agregar sus atributos al acumulado
+                            for hijo in nodos_hijos:
+                                nuevos_atributos = atributos_acumulados.copy()
+                                nuevos_atributos.update({f"{atrib}": hijo.get(atrib) for atrib in atributos_por_elemento.get(nivel, [])})
+                                nuevos_nodos_a_procesar.append((hijo, nuevos_atributos))
+                        else:
+                            # Si no hay hijos, registrar atributos vacíos para el nivel actual
+                            atributos_vacios = {f"{atrib}": None for atrib in atributos_por_elemento.get(nivel, [])}
+                            nuevos_atributos = atributos_acumulados.copy()
+                            nuevos_atributos.update(atributos_vacios)
+                            nuevos_nodos_a_procesar.append((nodo_actual, nuevos_atributos))
+                    except KeyError:
+                        print(f"Error: XPath no encontrado para el nivel {nivel} en la ruta {ruta}.")
+                        continue
+                    except Exception as e:
+                        print(f"Error procesando XPath para el nivel {nivel} en la ruta {ruta}: {e}")
+                        continue
+
+                # Actualizar la lista de nodos a procesar para el siguiente nivel
+                nodos_a_procesar = nuevos_nodos_a_procesar
+
+            # Al final, agregar los atributos acumulados al resultado
+            for _, atributos_acumulados in nodos_a_procesar:
+                if atributos_acumulados not in data[ruta]:  # Evitar duplicados
+                    data[ruta].append(atributos_acumulados)
+
+    return data
+
 def read_cfdi(
         xml_path: str, 
         nodos: dict[str, list[tuple[str, ...]]],# Diccionario de rutas de nodos por tipo de nodo 
@@ -165,7 +253,7 @@ def read_cfdi(
                 CFDIInspectionError(f'No se encontró información de XSD para la versión {versiones[tipo]}').show()
                 data[tipo] = None
             try:
-                data[tipo] = extraer_elementos_atributos(root, nodes, attributes, xpaths)
+                data[tipo] = extraer_elementos_atributos_anidados(root, nodes, attributes, xpaths)
             except Exception as e:
                 CFDIInspectionError(f'Error al extraer información de {tipo} en {xml_path}').show()
                 data[tipo] = None
@@ -449,13 +537,20 @@ def build_xpath(elemento_anidado, ns_name, deep=False)-> str:
     if isinstance(elemento_anidado, str):
         elemento_anidado = (elemento_anidado,)
     if deep:
-        return '//'+'//'.join(f'{ns_name}:{elemento}' for elemento in elemento_anidado)
+        return './/'+'//'.join(f'{ns_name}:{elemento}' for elemento in elemento_anidado)
     return './'+'/'.join(f'{ns_name}:{elemento}' for elemento in elemento_anidado)
 
 def generate_xpaths(rutas, namespaces, ns_name, deep=False)-> dict[tuple[str, ...], etree.XPath]:
     """Genera un diccionario de XPaths (como elementos de la clase etree.XPath)"""
-    #rutas = [ruta if isinstance(ruta, tuple) else (ruta,) for ruta in rutas]
-    return {ruta: etree.XPath(build_xpath(ruta, ns_name, deep=deep), namespaces=namespaces) for ruta in rutas}
+    # return {ruta: etree.XPath(build_xpath(ruta, ns_name, deep=deep), namespaces=namespaces) for ruta in rutas}
+    xpaths = {}
+    for ruta in rutas:
+        # para cada elemento de la ruta, construir el XPath y el etree.XPath
+        for i in range(1, len(ruta)+1):
+            subruta = ruta[i-1:i]
+            xpath = build_xpath(subruta, ns_name, deep=deep)
+            xpaths[subruta] = etree.XPath(xpath, namespaces=namespaces)
+    return xpaths
 
 def load_xsd_data(
         nodos: dict[str, list[tuple[str, ...]]], # Diccionario de rutas de nodos por tipo de documento {cfdi: [(), ()], cartaporte: [(), ()], ...}
