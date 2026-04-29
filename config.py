@@ -113,7 +113,7 @@ CVES_GEN = ['1010101','01010101']
 PATH_CVES_NO_TRANSP_SIN_RET = './cves_prod_no_transp_sin_ret.xlsx'
 
 # Archivo de base de proveedores
-PATH_BASE_PROV = './base_proveedores_02.xlsx'
+PATH_BASE_PROV = './base_proveedores.xlsx'
 
 # columnas que se exportarán a la plantilla
 COLS_PLANTILLA = ['No. Doc', 'Posicion', 'Tipo de documento', 'Tipo de asignación', 'Asignación', 'Proveedor', 'Empresa compradora', 
