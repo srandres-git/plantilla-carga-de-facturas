@@ -2,10 +2,12 @@ from funciones_prev import generar_diccionarios
 from cfdi_inspection import read_cfdi_list, load_xsd_data
 from file_management import get_xml_files_from_zip
 from asignacion_producto import analisis_descripcion, asign_cve_prod_sap
-from config import CAMPOS_CCP, NODOS, XSD_PATHS, VERSIONES, ATRIBUTOS_PREDET, PATH_CVES_NO_TRANSP_SIN_RET, PATH_BASE_PROV, COLS_PLANTILLA
+from config import CAMPOS_CCP, NODOS, XSD_PATHS, VERSIONES, ATRIBUTOS_PREDET, PATH_CVES_NO_TRANSP_SIN_RET, COLS_PLANTILLA
 import pandas as pd
+import streamlit as st
 import xml.etree.ElementTree as ET
 import lxml.etree as etree
+from utils import get_provs
 
 def generar_plantilla(zip_xmls)-> pd.DataFrame:
     """Genera un DataFrame con la plantilla para carga de facturas a SAP"""
@@ -23,7 +25,7 @@ def generar_plantilla(zip_xmls)-> pd.DataFrame:
     # asignamos la clave de retención
     facturas['Código de retención'] = facturas.apply(cve_retencion, axis=1)
     # asignamos la clave de proveedor, incluyendo solo la primera coincidencia
-    base_prov = pd.read_excel(PATH_BASE_PROV).drop_duplicates(subset='RFC')
+    base_prov = get_provs(facturas['RFC'].unique().tolist(), st.secrets['sap_username'], st.secrets['sap_password'])
     facturas = facturas.merge(base_prov, on='RFC', how='left')
     # asignamos la clave de impuesto
     facturas['Código de impuesto'] = facturas.apply(cod_impuesto, axis=1)
