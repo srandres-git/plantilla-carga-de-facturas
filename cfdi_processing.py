@@ -25,7 +25,7 @@ def generar_plantilla(zip_xmls)-> pd.DataFrame:
     # asignamos la clave de retención
     facturas['Código de retención'] = facturas.apply(cve_retencion, axis=1)
     # asignamos la clave de proveedor, incluyendo solo la primera coincidencia
-    base_prov = get_provs(facturas['RFC'].unique().tolist(), st.secrets['sap_username'], st.secrets['sap_password'])
+    base_prov = get_provs(facturas['RFC'].unique().tolist(), st.session_state['sap_username_saved'], st.session_state['sap_password_saved'])
     facturas = facturas.merge(base_prov, on='RFC', how='left')
     # asignamos la clave de impuesto
     facturas['Código de impuesto'] = facturas.apply(cod_impuesto, axis=1)
